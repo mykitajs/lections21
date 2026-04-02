@@ -1,90 +1,114 @@
 package main
 
+import "strings"
+
 import "fmt"
 
-type figureFiller func(intsFig []int, runesFig []rune, strsFig []string) [][]rune  
+type row []string
 
-type Modifier func(ints []int, runes []rune, strings []string)
+type figure []row
 
-func charModifier(char rune) Modifier {
-	return func(ints []int, runes []rune, strings []string) {
-		runes[0] = char
+func (f figure) String() string { 
+	var res strings.Builder
+	for i := range f {
+		var subStr strings.Builder
+  		for j := range f[i] {
+			subStr.WriteString(f[i][j])
+  		}
+		subStr .WriteString("\n")
+
+		res.WriteString(subStr.String())
+ 	}
+
+	return res.String()
+}
+
+type Modifier func(intArgs map[string]int, strArgs map[string]string)
+
+type figureFiller func(fig figure, intFinalArgs map[string]int, strFinalArgs map[string]string) figure 
+
+const (
+	defaultSize = 15
+	defaultColor = 34
+	defaultChar = "!"
+)
+
+const (
+	sizeModifierArg = "size"
+	colorMogifierArg = "color"
+	charModifierArg = "char"
+)
+
+func charModifier(char string, color int) Modifier {
+	return func(intArgs map[string]int, strArgs map[string]string) {
+		intArgs[colorMogifierArg] = color
+		strArgs[charModifierArg] = fmt.Sprintf("\033[%dm%s\033[0m", color, char)
 	}
 }
 
 func sizeModifier(size int) Modifier {
-	return func(ints []int, runes []rune, strings []string) {
-		ints[0] = size
+	return func(intArgs map[string]int, strArgs map[string]string) {
+		intArgs[sizeModifierArg] = size
 	}
 }
 
 func colorModifier(color int) Modifier {
-	return func(ints []int, runes []rune, strings []string) {
-		ints[1] = color
-		//Чёрный	30
-		//Красный	31
-		//Зелёный	32
-		//Жёлтый	33
-		//Синий		34
-		//Фиол.		35
-		//Голуб.	36
-		//Белый		37
+	return func(intArgs map[string]int, strArgs map[string]string) {
+		intArgs[colorMogifierArg] = color
 	}
 }
 
-func blankFigureFiller(numsFig []int, runesFig []rune, strsFig []string) [][]rune {
-	size := numsFig[0]
-
-	image := make([][]rune, size)
-	for i := range image {
-		image[i] = make([]rune, size)
-		for j := range image[i] {
-			image[i][j] = ' '
+func makeBlankFigure(size int) figure {
+	blankFigure := make(figure, size)
+	for i := range blankFigure {
+		blankFigure[i] = make([]string, size)
+		for j := range blankFigure[i] {
+			blankFigure[i][j] = " "
 		}
 	}
 
-	return image
+	return blankFigure
 }
 
-func sandglassFigureFiller(numsFig []int, runesFig []rune, strsFig []string) [][]rune {
-	size := numsFig[0]
-	char := runesFig[0]
+func sandglassFigureFiller(fig figure, intFinalArgs map[string]int, strFinalArgs map[string]string) figure {
+	size := intFinalArgs[sizeModifierArg]
+	char := strFinalArgs[charModifierArg]
 
-	image := blankFigureFiller(numsFig, runesFig, strsFig)
-
-	for i := 0; i < size; i++ {
-		image[0][i] = char
-		image[size-1][i] = char
-		image[i][i] = char
-		image[i][size-1-i] = char
+	for i := range fig { 
+		fig[0][i] = char
+		fig[size-1][i] = char
+		fig[i][i] = char
+		fig[i][size-1-i] = char
 	}
-
-	return image
+ 
+	return fig
 }
 
-func printlnFigure(figure figureFiller, mods ...Modifier) {
-	ints := make([]int, 2)
-	runes := make([]rune, 1)
-	strings := make([]string, 1)
-	ints[0] = 15
-	ints[1] = 34
-	runes[0] = '!'
-	strings[0] = "blue"
-	color := ints[1]
-	for _, mod := range mods {
-		mod(ints, runes, strings)
+func setDefaultValues() (map[string]int, map[string]string) {
+	intArgs := map[string]int {
+		sizeModifierArg: defaultSize,
+		colorMogifierArg: defaultColor,
 	}
-	image := figure(ints, runes, strings)
-	for i := range image {
-		for j := range image[i] {
-			fmt.Printf("\033[%dm%c\033[0m", color, image[i][j])
-		}
-		fmt.Println()
-	}
+	strArgs := map[string]string {
+  		charModifierArg: defaultChar,
+ 	}
+
+	return  intArgs, strArgs
 }
 
-//fmt.Println("\033[31mКрасный текст\033[0m")
+func constructfigure(figFiller figureFiller, mods ...Modifier) figure {
+	intArgs, strArgs := setDefaultValues()
+
+ 	for _, mod := range mods {
+  		mod(intArgs, strArgs)
+ 	}
+
+	fig := makeBlankFigure(intArgs[sizeModifierArg])
+	figFiller(fig, intArgs, strArgs)
+
+	return fig
+}
 
 func main() {
-	printlnFigure(sandglassFigureFiller, sizeModifier(15), charModifier('!'), colorModifier(34))
+	fmt.Println(constructfigure(sandglassFigureFiller, sizeModifier(15), charModifier("!", 34)))
 }
